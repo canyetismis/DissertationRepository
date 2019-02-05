@@ -2,6 +2,9 @@
 import java.util.*;
 import java.util.ArrayList;
 import java.util.Random;
+
+import schedules.GeometricCooling;
+
 import java.util.List;
 
 public class SRSA {
@@ -13,18 +16,26 @@ public class SRSA {
 	double obj;
 	double prev_obj;
 	Random rand;
+	
+	Random random;
+	
 	int number_of_LLHs;
 	ArrayList<double[]> grid;
 	int num_of_evaluations,total_num_of_evaluations;
+	
+	GeometricCooling cs;
+	
 	//Constructor that initialises values
     public SRSA(WindFarmLayoutEvaluator evaluator) {
 		number_of_LLHs = 7;
 		wfle = evaluator;
 		rand = new Random();
+		random = new Random();
 		grid = new ArrayList<double[]>();
 		obj = Double.MAX_VALUE;
 		num_of_evaluations = 0;
-		total_num_of_evaluations = 2000;
+		total_num_of_evaluations = 10;
+		cs = new GeometricCooling(100.0);
 	}
     //Evaluation Function
 	private double evaluate() {
@@ -229,7 +240,11 @@ public class SRSA {
 				util_LLH[h]++;
 			}
 			
-			if (obj <= prev_obj) {
+			double delta = obj - prev_obj;
+			double r = random.nextDouble();
+			double temp = cs.getTemperature();
+			
+			if (delta < 0 || r < Math.exp(-delta/temp)) {
 				for (int i=0; i<grid.size(); i++) {
 					prev_solution[i] = solution[i];
 				}
