@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.List;
 
-public class SRIE {
+public class SRSA {
 
 	WindFarmLayoutEvaluator wfle;
 	boolean[] solution;
@@ -17,7 +17,7 @@ public class SRIE {
 	ArrayList<double[]> grid;
 	int num_of_evaluations,total_num_of_evaluations;
 	//Constructor that initialises values
-    public SRIE(WindFarmLayoutEvaluator evaluator) {
+    public SRSA(WindFarmLayoutEvaluator evaluator) {
 		number_of_LLHs = 7;
 		wfle = evaluator;
 		rand = new Random();
