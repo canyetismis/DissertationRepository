@@ -9,7 +9,7 @@ public interface CoolingSchedule {
 	public double getTemperature();
 	
 	/**
-	 * Increases the temperature with respect to the cooling schedule
+	 * Changes the temperature with respect to the cooling schedule
 	 */
-	public void increaseTemperature();
+	public void changeTemperature();
 }
