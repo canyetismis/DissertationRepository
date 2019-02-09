@@ -24,7 +24,7 @@ public class SRIE {
 		grid = new ArrayList<double[]>();
 		obj = Double.MAX_VALUE;
 		num_of_evaluations = 0;
-		total_num_of_evaluations = 2000;
+		total_num_of_evaluations = 20;
 	}
     //Evaluation Function
 	private double evaluate() {

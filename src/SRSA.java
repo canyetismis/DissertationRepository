@@ -35,7 +35,7 @@ public class SRSA {
 		obj = Double.MAX_VALUE;
 		num_of_evaluations = 0;
 		total_num_of_evaluations = 10;
-		cs = new GeometricCooling(100.0);
+		//cs = new GeometricCooling(0.00001); //Has to be the objective funtion value of the initial solution
 	}
     //Evaluation Function
 	private double evaluate() {
@@ -221,7 +221,9 @@ public class SRSA {
 		}
 		prev_obj = obj;
 		
-		System.out.println("Initial obj " + obj);
+		System.out.println("Initial objective " + obj);
+		//Sets initial temperature
+		cs = new GeometricCooling(obj);
 		
 		util_LLH = new int[number_of_LLHs];
 		
@@ -241,7 +243,7 @@ public class SRSA {
 			}
 			
 			double delta = obj - prev_obj;
-			double r = random.nextDouble();
+			double r = random.nextDouble();//range of this variable?
 			double temp = cs.getTemperature();
 			
 			if (delta < 0 || r < Math.exp(-delta/temp)) {

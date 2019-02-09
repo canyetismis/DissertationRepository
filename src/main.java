@@ -6,7 +6,7 @@ public class main {
           WindScenario ws = new WindScenario("D://Dissertation//source//Scenarios//0.xml");
           KusiakLayoutEvaluator wfle = new KusiakLayoutEvaluator();
           wfle.initialize(ws);
-          SRIE algorithm = new SRIE(wfle);
+          SRSA algorithm = new SRSA(wfle);
           algorithm.run(); // optional, name of method 'run' provided on submission
           // algorithm can also just use constructor
       } catch (Exception e) {
