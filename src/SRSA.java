@@ -34,7 +34,7 @@ public class SRSA {
 		grid = new ArrayList<double[]>();
 		obj = Double.MAX_VALUE;
 		num_of_evaluations = 0;
-		total_num_of_evaluations = 10;
+		total_num_of_evaluations = 2000;
 		//cs = new GeometricCooling(0.00001); //Has to be the objective funtion value of the initial solution
 	}
     //Evaluation Function
@@ -67,7 +67,7 @@ public class SRSA {
 			cost_of_energy = Double.MAX_VALUE;
 		}
 		
-		return cost_of_energy;
+		return cost_of_energy*1000000000; //Test value
 	}
 	//Low-Level Heuristics
 	private void LLH0() {
@@ -258,6 +258,8 @@ public class SRSA {
 				}
 				obj = prev_obj;
 			}
+			
+			cs.changeTemperature();
 			System.out.println(obj);
 		}
 		
