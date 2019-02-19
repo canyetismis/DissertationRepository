@@ -69,7 +69,7 @@ public class SRSA {
 			cost_of_energy = Double.MAX_VALUE;
 		}
 		
-		return cost_of_energy*1000000000; //Test value *1000000000
+		return cost_of_energy; //Test value *1000000000
 	}
 	//Low-Level Heuristics
 	private void LLH0() {
