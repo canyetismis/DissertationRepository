@@ -1,11 +1,11 @@
 
-import java.util.*;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
 
 import schedules.GeometricCooling;
-
-import java.util.List;
 
 public class SRSA {
 
@@ -18,6 +18,7 @@ public class SRSA {
 	Random rand;
 	
 	Random random;
+	BufferedWriter out;
 	
 	int number_of_LLHs;
 	ArrayList<double[]> grid;
@@ -26,15 +27,16 @@ public class SRSA {
 	GeometricCooling cs;
 	
 	//Constructor that initialises values
-    public SRSA(WindFarmLayoutEvaluator evaluator) {
+    public SRSA(WindFarmLayoutEvaluator evaluator, long seed) throws IOException {
 		number_of_LLHs = 7;
 		wfle = evaluator;
-		rand = new Random();
-		random = new Random();
+		rand = new Random(398625566);//seed value
+		random = new Random(398625566);
 		grid = new ArrayList<double[]>();
 		obj = Double.MAX_VALUE;
 		num_of_evaluations = 0;
 		total_num_of_evaluations = 2000;
+		out = new BufferedWriter(new FileWriter("out.txt"));
 		//cs = new GeometricCooling(0.00001); //Has to be the objective funtion value of the initial solution
 	}
     //Evaluation Function
@@ -67,7 +69,7 @@ public class SRSA {
 			cost_of_energy = Double.MAX_VALUE;
 		}
 		
-		return cost_of_energy*1000000000; //Test value
+		return cost_of_energy*1000000000; //Test value *1000000000
 	}
 	//Low-Level Heuristics
 	private void LLH0() {
@@ -186,7 +188,7 @@ public class SRSA {
 		else if (h == 6) LLH6();
 	}
 	
-	public void run() {
+	public void run() throws IOException{
 		// set up grid
 		// centers must be > 8*R apart
 		// ensure the feasibility of the solution
@@ -222,6 +224,8 @@ public class SRSA {
 		prev_obj = obj;
 		
 		System.out.println("Initial objective " + obj);
+		out.write("Initial objective " + obj);
+		
 		//Sets initial temperature
 		cs = new GeometricCooling(obj);
 		
@@ -234,10 +238,18 @@ public class SRSA {
 		// Hyper-heuristic 
 		while(num_of_evaluations < total_num_of_evaluations) {
 			int h = rand.nextInt(number_of_LLHs);
+			
 			System.out.print(num_of_evaluations + "\t LLH-" + h + "\t");
+			
+			out.newLine();
+			out.write(num_of_evaluations + "\t LLH-" + h + "\t");
+			
 			applyLLH(h);
 			obj = evaluate();
+			
 			System.out.print(obj + "\t");
+			out.write(obj + "\t");
+			
 			if (obj < prev_obj) {
 				util_LLH[h]++;
 			}
@@ -261,8 +273,11 @@ public class SRSA {
 			
 			cs.changeTemperature();
 			System.out.println(obj);
+			out.write(String.valueOf(obj));
+
 		}
-		
+		out.flush();
+		out.close();
 		// Stats
 		System.out.println("GRID-Start");
 		for (int i=0; i<grid.size(); i++) {
