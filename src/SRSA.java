@@ -2,6 +2,7 @@
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -188,7 +189,21 @@ public class SRSA {
 		else if (h == 6) LLH6();
 	}
 	
+	public double roundTwoDecimals(double d) {
+		DecimalFormat two_d_form = new DecimalFormat("#.##");
+		return Double.valueOf(two_d_form.format(d));
+	}
+	
 	public void run() throws IOException{
+		//Variables for the Modified Choice Function
+		double phi = 0.50, delta = 0.50;
+		int h = 0, init_flag = 0;
+		int time_exp_before, time_exp_after, time_to_apply;
+		double best_heuristic_score = 0.00, fitness_change = 0.00, prev_fitness_change = 0.00;
+		double[] F = new double[number_of_LLHs], f1 = new double[number_of_LLHs], f3 = new double[number_of_LLHs];
+		double[][] f2 = new double[number_of_LLHs][number_of_LLHs];
+		int last_heuristic_called = 0;
+		
 		// set up grid
 		// centers must be > 8*R apart
 		// ensure the feasibility of the solution
@@ -237,15 +252,32 @@ public class SRSA {
 		
 		// Hyper-heuristic 
 		while(num_of_evaluations < total_num_of_evaluations) {
-			int h = rand.nextInt(number_of_LLHs);
+			//int h = rand.nextInt(number_of_LLHs);
+			if (init_flag > 1) { //flag used to select heuristics randomly for the first two iterations
+				best_heuristic_score = 0.0;
+				for (int i = 0; i < number_of_LLHs; i++) {//update F matrix
+					F[i] = phi * f1[i] + phi * f2[i][last_heuristic_called] + delta * f3[i];
+					if (F[i] > best_heuristic_score) {
+						h = i; 
+						best_heuristic_score = F[i];
+					}
+				}
+			}
+			else {
+				//select heuristics randomly
+				h = rand.nextInt(number_of_LLHs);
+			}
 			
 			System.out.print(num_of_evaluations + "\t LLH-" + h + "\t");
 			
 			out.newLine();
 			out.write(num_of_evaluations + "\t LLH-" + h + "\t");
 			
+			time_exp_before = num_of_evaluations;
 			applyLLH(h);
 			obj = evaluate();
+			time_exp_after = num_of_evaluations;
+			time_to_apply = time_exp_after - time_exp_before + 1; //+1 prevents / by 0
 			
 			System.out.print(obj + "\t");
 			out.write(obj + "\t");
@@ -254,15 +286,19 @@ public class SRSA {
 				util_LLH[h]++;
 			}
 			
-			double delta = obj - prev_obj;
-			double r = random.nextDouble();//range of this variable?
+			double delta_sa = obj - prev_obj;
+			double r = random.nextDouble();
 			double temp = cs.getTemperature();
 			
-			if (delta < 0 || r < Math.exp(-delta/temp)) {
+			//calculate the change in fitness from the current solution to the new solution
+			fitness_change = obj - prev_obj;
+			
+			if (delta_sa < 0 || r < Math.exp(-delta_sa/temp)) {
 				for (int i=0; i<grid.size(); i++) {
 					prev_solution[i] = solution[i];
 				}
 				prev_obj = obj;
+				
 			}
 			else {
 				for (int i=0; i<grid.size(); i++) {
@@ -274,6 +310,38 @@ public class SRSA {
 			cs.changeTemperature();
 			System.out.println(obj);
 			out.write(String.valueOf(obj));
+			//update f1, f2 and f3 values for appropriate heuristics 
+			//first two iterations dealt with separately to set-up variables
+			if (init_flag > 1) {
+				f1[h] = fitness_change / time_to_apply + phi * f1[h];
+				f2[h][last_heuristic_called] = prev_fitness_change + fitness_change / time_to_apply + phi * f2[h][last_heuristic_called];
+			} else if (init_flag == 1) {
+				f1[h] = fitness_change / time_to_apply;
+				f2[h][last_heuristic_called] = prev_fitness_change + fitness_change / time_to_apply + prev_fitness_change;
+				init_flag++;
+			} else { //i.e. init_flag = 0
+					f1[h] = fitness_change / time_to_apply;
+			init_flag++;
+			} 
+			for (int i = 0; i < number_of_LLHs; i++) {
+				f3[i] += time_to_apply;
+			}
+			f3[h] = 0.00;
+
+			if (fitness_change < 0.00) {//in case of improvement
+				phi = 0.99;
+				delta = 0.01;
+				prev_fitness_change = fitness_change / time_to_apply;
+			} else {//non-improvement
+				if (phi > 0.01) {
+					phi -= 0.01;                                                                          
+				}
+				phi = roundTwoDecimals(phi);
+				delta = 1.00 - phi;
+				delta = roundTwoDecimals(delta);
+				prev_fitness_change = 0.00;
+			}
+			last_heuristic_called = h;
 
 		}
 		out.flush();
