@@ -4,7 +4,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
+import java.lang.management.ThreadMXBean;
+import java.lang.management.ManagementFactory;
 
 import schedules.GeometricCooling;
 
@@ -13,13 +17,20 @@ public class SRSA {
 	WindFarmLayoutEvaluator wfle;
 	boolean[] solution;
 	boolean[] prev_solution;
+	boolean[] best_solution;
 	int[] util_LLH;
 	double obj;
 	double prev_obj;
+	double best_obj;
 	Random rand;
+	
+	ThreadMXBean bean;
+	long initialTime;
 	
 	Random random;
 	BufferedWriter out;
+	long cf_cons;
+	int worse_flag;
 	
 	int number_of_LLHs;
 	ArrayList<double[]> grid;
@@ -37,6 +48,9 @@ public class SRSA {
 		obj = Double.MAX_VALUE;
 		num_of_evaluations = 0;
 		total_num_of_evaluations = 2000;
+		//A constant to balance out the weight of the objective function values
+		cf_cons = 1000;
+		worse_flag = 10;
 		out = new BufferedWriter(new FileWriter("out.txt"));
 		//cs = new GeometricCooling(0.00001); //Has to be the objective funtion value of the initial solution
 	}
@@ -194,15 +208,25 @@ public class SRSA {
 		return Double.valueOf(two_d_form.format(d));
 	}
 	
+	public long getElapsedTime(){
+	    if (bean == null) { 
+	    	return 0L;
+	    }
+	    return (long) ((bean.getCurrentThreadCpuTime() - initialTime) / 1000000.0D);
+	}
 	public void run() throws IOException{
 		//Variables for the Modified Choice Function
 		double phi = 0.50, delta = 0.50;
-		int h = 0, init_flag = 0;
-		int time_exp_before, time_exp_after, time_to_apply;
+		int h = 0, init_flag = 0, worse_cout = 0;
+		long time_exp_before, time_exp_after, time_to_apply;
 		double best_heuristic_score = 0.00, fitness_change = 0.00, prev_fitness_change = 0.00;
 		double[] F = new double[number_of_LLHs], f1 = new double[number_of_LLHs], f3 = new double[number_of_LLHs];
 		double[][] f2 = new double[number_of_LLHs][number_of_LLHs];
 		int last_heuristic_called = 0;
+		boolean duplicate = false;
+		bean = ManagementFactory.getThreadMXBean();
+	    initialTime = bean.getCurrentThreadCpuTime();
+		
 		
 		// set up grid
 		// centers must be > 8*R apart
@@ -232,11 +256,14 @@ public class SRSA {
 		}
 		obj = evaluate();
 		
+		best_solution = new boolean[grid.size()];
 		prev_solution = new boolean[grid.size()];
 		for (int i=0; i<grid.size(); i++) {
 			prev_solution[i] = solution[i];
+			best_solution[i] = solution[i];
 		}
 		prev_obj = obj;
+		best_obj = obj;
 		
 		System.out.println("Initial objective " + obj);
 		out.write("Initial objective " + obj);
@@ -253,19 +280,85 @@ public class SRSA {
 		// Hyper-heuristic 
 		while(num_of_evaluations < total_num_of_evaluations) {
 			//int h = rand.nextInt(number_of_LLHs);
+			/*out.newLine();
+			out.newLine();
+			out.write("---BEGIN---ITERATION: " + num_of_evaluations + "\t Current Objective Function Value: " + obj);
+			out.newLine();
+			out.write("////DISCLAIMER//// The previous choice function scores can be observed in the previous itteration ");
+			out.newLine();
+			out.newLine();*/
 			if (init_flag > 1) { //flag used to select heuristics randomly for the first two iterations
 				best_heuristic_score = 0.0;
 				for (int i = 0; i < number_of_LLHs; i++) {//update F matrix
 					F[i] = phi * f1[i] + phi * f2[i][last_heuristic_called] + delta * f3[i];
+					/*out.newLine();
+					out.write("Selected Heuristic \t" + "LLH-" + i + "\t Score: " + F[i] );
+					
+					out.newLine();
+					out.write("\t phi*f1 for LLH-" + i + ": \t" + phi*f1[i]);
+					out.newLine();
+					out.write("\t phi*f2 for LLH-" + i + ": \t" + phi*f2[i][last_heuristic_called]);
+					out.newLine();
+					out.write("\t delta*f3 for LLH-" + i + ": \t" + delta*f3[i]);
+					out.newLine();
+					out.write("\t delta value: \t" + delta);
+					out.newLine();
+					out.write("\t phi value: \t" + phi);*/
+					//Selects the heuristic with the highest score
 					if (F[i] > best_heuristic_score) {
 						h = i; 
 						best_heuristic_score = F[i];
 					}
 				}
+				//checks for duplicate scores
+				double[] temp_array = new double[number_of_LLHs];
+				int counter = 1;
+				for(int j = 0; j<number_of_LLHs; j++) {
+					for(int k = j+1; k<number_of_LLHs; k++) {
+						if(k!=j && F[k]==F[j]) {
+							temp_array[j] = F[j];
+							temp_array[k] = F[k];
+							//checks if duplicate value is the highest score
+							if(F[j] == best_heuristic_score) {
+								duplicate = true;
+							}
+							counter++;
+						}
+					}
+
+					if(duplicate) {
+						break;
+					}
+				}
+				//if a duplicate score exists, stores heuristics with same score
+				//and selects one of them randomly
+				if(duplicate) {
+					//Store the heuristics with same score in an array
+					int[] llh_to_apply = new int[counter];
+					int llh_counter = 0;
+					for(int x = 0; x<number_of_LLHs; x++) {
+						if(temp_array[x] != 0) {
+							llh_to_apply[llh_counter] = x;
+							llh_counter++;
+						}
+					}
+					int selection = rand.nextInt(llh_to_apply.length);
+					h = llh_to_apply[selection];
+					best_heuristic_score = F[h];
+					duplicate = false;
+				} 
+				/*out.newLine();
+				out.newLine();
+				out.write("Heuristic to Apply \t" + "LLH-" + h + "\t Score: " + best_heuristic_score );
+				out.newLine();*/
 			}
 			else {
 				//select heuristics randomly
 				h = rand.nextInt(number_of_LLHs);
+				/*out.newLine();
+				out.newLine();
+				out.write("Randomly Selected Heuristic to Apply \t" + "LLH-" + h );
+				out.newLine();*/
 			}
 			
 			System.out.print(num_of_evaluations + "\t LLH-" + h + "\t");
@@ -273,11 +366,12 @@ public class SRSA {
 			out.newLine();
 			out.write(num_of_evaluations + "\t LLH-" + h + "\t");
 			
-			time_exp_before = num_of_evaluations;
+			//Time is the iteration number in this case
+			time_exp_before = num_of_evaluations;//num_of_evaluations;
 			applyLLH(h);
 			obj = evaluate();
 			time_exp_after = num_of_evaluations;
-			time_to_apply = time_exp_after - time_exp_before + 1; //+1 prevents / by 0
+			time_to_apply = time_exp_after - time_exp_before; //value is usually 1 
 			
 			System.out.print(obj + "\t");
 			out.write(obj + "\t");
@@ -285,14 +379,14 @@ public class SRSA {
 			if (obj < prev_obj) {
 				util_LLH[h]++;
 			}
-			
+			//Simulated Annealing
 			double delta_sa = obj - prev_obj;
 			double r = random.nextDouble();
 			double temp = cs.getTemperature();
 			
 			//calculate the change in fitness from the current solution to the new solution
-			fitness_change = obj - prev_obj;
-			
+			fitness_change = prev_obj - obj;
+			//Simulated Annealing
 			if (delta_sa < 0 || r < Math.exp(-delta_sa/temp)) {
 				for (int i=0; i<grid.size(); i++) {
 					prev_solution[i] = solution[i];
@@ -306,32 +400,47 @@ public class SRSA {
 				}
 				obj = prev_obj;
 			}
-			
+			//Simulated Annealing
 			cs.changeTemperature();
 			System.out.println(obj);
+			out.newLine();
 			out.write(String.valueOf(obj));
+			
+			//Keeps track of the best solution
+			if(obj <= best_obj) {
+				for (int i=0; i<grid.size(); i++) {
+					best_solution[i] = solution[i];
+				}
+				best_obj = obj;
+			}
+			
 			//update f1, f2 and f3 values for appropriate heuristics 
 			//first two iterations dealt with separately to set-up variables
+			//scores must be improved by 1
 			if (init_flag > 1) {
-				f1[h] = fitness_change / time_to_apply + phi * f1[h];
-				f2[h][last_heuristic_called] = prev_fitness_change + fitness_change / time_to_apply + phi * f2[h][last_heuristic_called];
-			} else if (init_flag == 1) {
+				f1[h] = (fitness_change / time_to_apply)*cf_cons + phi * f1[h];
+				f2[h][last_heuristic_called] = prev_fitness_change + (fitness_change / time_to_apply)*cf_cons + phi * f2[h][last_heuristic_called];
+			} else if (init_flag ==1) {
 				f1[h] = fitness_change / time_to_apply;
-				f2[h][last_heuristic_called] = prev_fitness_change + fitness_change / time_to_apply + prev_fitness_change;
+				f2[h][last_heuristic_called] = prev_fitness_change + (fitness_change / time_to_apply)*cf_cons + prev_fitness_change;
 				init_flag++;
 			} else { //i.e. init_flag = 0
-					f1[h] = fitness_change / time_to_apply;
-			init_flag++;
+				f1[h] = (fitness_change / time_to_apply)*cf_cons;
+				init_flag++;
 			} 
 			for (int i = 0; i < number_of_LLHs; i++) {
 				f3[i] += time_to_apply;
 			}
 			f3[h] = 0.00;
 
-			if (fitness_change < 0.00) {//in case of improvement
+			if (fitness_change > 0.00) {//in case of improvement
 				phi = 0.99;
 				delta = 0.01;
-				prev_fitness_change = fitness_change / time_to_apply;
+				prev_fitness_change = (fitness_change / time_to_apply)*cf_cons;
+				/*out.newLine();
+				out.write("+++END+++There is improvement, new objective function value: " + obj);
+				out.newLine();*/
+				worse_cout = 0;
 			} else {//non-improvement
 				if (phi > 0.01) {
 					phi -= 0.01;                                                                          
@@ -340,8 +449,27 @@ public class SRSA {
 				delta = 1.00 - phi;
 				delta = roundTwoDecimals(delta);
 				prev_fitness_change = 0.00;
+				/*out.newLine();
+				out.write("+++END+++There is NO improvement, new objective function value: " + obj);
+				out.newLine();*/
+				worse_cout++;
 			}
 			last_heuristic_called = h;
+			
+			if(worse_cout == worse_flag) {
+				//resets the scores for the Modified Choice Function
+				//resets the measures
+				for (int i = 0; i < number_of_LLHs; i++) {
+					F[i] = 0;
+					f1[i] = 0;
+					f3[i] = 0;
+					for (int j = 0; j < number_of_LLHs; j++) {
+						f2[i][j] = 0;
+					}
+				}
+				worse_cout = 0;
+				init_flag = 0;
+			}
 
 		}
 		out.flush();
@@ -354,7 +482,7 @@ public class SRSA {
 		}
 		System.out.println("GRID-End");
 		System.out.println("num_of_evaluations " + num_of_evaluations);
-		System.out.println("best obj " + obj);
+		System.out.println("best obj " + best_obj);
 		
 		for (int i = 0; i < number_of_LLHs; ++i) {
 			System.out.println("LLH" + i + "\t" + util_LLH[i]);
