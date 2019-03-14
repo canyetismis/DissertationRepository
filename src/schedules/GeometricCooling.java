@@ -8,7 +8,7 @@ public class GeometricCooling implements CoolingSchedule {
 	public GeometricCooling(double initialSolution) {
 		double c = 1.0; //Initial c value, *Ask about this value
 		this.temperature =c * initialSolution;
-		this.alpha = 0.993; //Alpha value will be improved by implementing Taguchi Orthogon Method
+		this.alpha = 0.998; //Alpha value will be improved by implementing Taguchi Orthogon Method
 		// []
 	}
 

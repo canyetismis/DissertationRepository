@@ -12,9 +12,11 @@ public class SRSA {
 	WindFarmLayoutEvaluator wfle;
 	boolean[] solution;
 	boolean[] prev_solution;
+	boolean[] best_solution;
 	int[] util_LLH;
 	double obj;
 	double prev_obj;
+	double best_obj;
 	Random rand;
 	
 	Random random;
@@ -24,6 +26,7 @@ public class SRSA {
 	ArrayList<double[]> grid;
 	int num_of_evaluations,total_num_of_evaluations;
 	int counter;
+	long global_seed;
 	
 	GeometricCooling cs;
 	
@@ -36,10 +39,11 @@ public class SRSA {
 		grid = new ArrayList<double[]>();
 		obj = Double.MAX_VALUE;
 		num_of_evaluations = 0;
-		total_num_of_evaluations = 5;
-		out = new BufferedWriter(new FileWriter("out.txt"));
+		total_num_of_evaluations = 2000;
+		//out = new BufferedWriter(new FileWriter("run_" + cout + ".txt"));
 		//cs = new GeometricCooling(0.00001); //Has to be the objective funtion value of the initial solution
 		counter = cout;
+		global_seed = seed;
     }
     
     //Evaluation Function
@@ -220,15 +224,18 @@ public class SRSA {
 		}
 		obj = evaluate();
 		
+		best_solution = new boolean[grid.size()];
 		prev_solution = new boolean[grid.size()];
 		for (int i=0; i<grid.size(); i++) {
 			prev_solution[i] = solution[i];
+			best_solution[i] = solution[i];
 		}
 		prev_obj = obj;
+		best_obj = obj;
 		
-		out = new BufferedWriter(new FileWriter("out" + counter + ".txt"));
+		out = new BufferedWriter(new FileWriter("run_" + counter + ".txt"));
 		System.out.println("Initial objective " + obj);
-		out.write("Initial objective " + obj);
+		out.write("Initial objective " + obj + "\t Seed value " + global_seed);
 		
 		//Sets initial temperature
 		cs = new GeometricCooling(obj);
@@ -278,23 +285,43 @@ public class SRSA {
 			cs.changeTemperature();
 			System.out.println(obj);
 			out.write(String.valueOf(obj));
+			
+			//Keeps track of the best solution
+			if(obj <= best_obj) {
+				for (int i=0; i<grid.size(); i++) {
+					best_solution[i] = solution[i];
+				}
+				best_obj = obj;
+			}
 
 		}
-		out.flush();
-		out.close();
 		// Stats
 		System.out.println("GRID-Start");
+		out.newLine();
+		out.write("GRID-Start");
 		for (int i=0; i<grid.size(); i++) {
-			if (solution[i])
+			if (best_solution[i])
 				System.out.println(grid.get(i)[0] + "\t" + grid.get(i)[1]);
+				out.newLine();
+				out.write(grid.get(i)[0] + "\t" + grid.get(i)[1]);
 		}
 		System.out.println("GRID-End");
 		System.out.println("num_of_evaluations " + num_of_evaluations);
-		System.out.println("best obj " + obj);
+		System.out.println("best obj " + best_obj);
+		out.newLine();
+		out.write("GRID-End");
+		out.newLine();
+		out.write("num_of_evaluations " + num_of_evaluations);
+		out.newLine();
+		out.write("best obj " + best_obj);
 		
 		for (int i = 0; i < number_of_LLHs; ++i) {
 			System.out.println("LLH" + i + "\t" + util_LLH[i]);
+			out.newLine();
+			out.write("LLH" + i + "\t" + util_LLH[i]);
 		}
+		out.flush();
+		out.close();
 		
 	}
 }
